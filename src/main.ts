@@ -41,6 +41,30 @@ const markers = L.layerGroup().addTo(map);
 const allPins: PinMarker[] = [];
 const allAreas: { polygon: AreaPolygon; labelMarker: L.Marker | null }[] = [];
 
+let currentMode: 'select' | 'pin' | 'draw' = 'select';
+
+function updateAreaInteractivity() {
+  const interactive = currentMode === 'select';
+  allAreas.forEach(({ polygon }) => {
+    polygon.options.interactive = interactive;
+    const el = (polygon as any)._path;
+    if (el) el.style.pointerEvents = interactive ? 'auto' : 'none';
+  });
+}
+
+function setMode(mode: 'select' | 'pin' | 'draw') {
+  currentMode = mode;
+  selectBtn.classList.toggle('active', mode === 'select');
+  pinBtn.classList.toggle('active', mode === 'pin');
+  drawBtn.classList.toggle('active', mode === 'draw');
+  if (mode === 'draw') {
+    drawing.start();
+  } else {
+    drawing.stop();
+  }
+  updateAreaInteractivity();
+}
+
 // -- Panel --
 
 const panel = initPanel({
@@ -141,8 +165,7 @@ function closeModal() {
   pendingLatLng = null;
   pendingVertices = null;
   drawing.stop();
-  selectBtn.classList.add('active');
-  drawBtn.classList.remove('active');
+  setMode('select');
 }
 
 async function confirmNameModal() {
@@ -339,6 +362,9 @@ toolbar.innerHTML =
   '<button class="toolbar-btn active" data-mode="select" title="Select">' +
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>' +
   '</button>' +
+  '<button class="toolbar-btn" data-mode="pin" title="Place Pin">' +
+  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>' +
+  '</button>' +
   '<button class="toolbar-btn" data-mode="draw" title="Draw Area">' +
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/></svg>' +
   '</button>' +
@@ -353,22 +379,13 @@ toolbar.innerHTML =
 document.body.appendChild(toolbar);
 
 const selectBtn = toolbar.querySelector('[data-mode="select"]') as HTMLButtonElement;
+const pinBtn = toolbar.querySelector('[data-mode="pin"]') as HTMLButtonElement;
 const drawBtn = toolbar.querySelector('[data-mode="draw"]') as HTMLButtonElement;
 const categoriesToolbarBtn = document.getElementById('categories-toolbar-btn')!;
 
-selectBtn.addEventListener('click', () => {
-  drawing.stop();
-  selectBtn.classList.add('active');
-  drawBtn.classList.remove('active');
-});
-
-drawBtn.addEventListener('click', () => {
-  drawing.start();
-  drawBtn.classList.add('active');
-  selectBtn.classList.remove('active');
-});
-
-categoriesToolbarBtn.addEventListener('click', openCategoriesModal);
+selectBtn.addEventListener('click', () => setMode('select'));
+pinBtn.addEventListener('click', () => setMode('pin'));
+drawBtn.addEventListener('click', () => setMode('draw'));
 
 // -- Confirm dialog --
 
@@ -419,6 +436,7 @@ clearAllBtn.addEventListener('click', () => {
 
 map.on('click', (e: L.LeafletMouseEvent) => {
   if (drawing.isActive()) return;
+  if (currentMode !== 'pin') return;
   pendingLatLng = { lat: e.latlng.lat, lng: e.latlng.lng };
   pendingVertices = null;
   openModal('pin');
@@ -459,6 +477,7 @@ function applyCategoryFilters() {
       if (labelMarker && map.hasLayer(labelMarker)) map.removeLayer(labelMarker);
     }
   });
+  updateAreaInteractivity();
 }
 
 onAuth(async (user) => {
