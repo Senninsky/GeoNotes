@@ -387,6 +387,8 @@ selectBtn.addEventListener('click', () => setMode('select'));
 pinBtn.addEventListener('click', () => setMode('pin'));
 drawBtn.addEventListener('click', () => setMode('draw'));
 
+categoriesToolbarBtn.addEventListener('click', openCategoriesModal);
+
 // -- Confirm dialog --
 
 const confirmModal = document.getElementById('confirm-modal')!;
